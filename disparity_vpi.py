@@ -51,29 +51,35 @@ class CameraThread(Thread):
 if __name__ == "__main__":
     map_l, map_r = get_calibration()
 
-    cam_l = CameraThread(0)
-    cam_r = CameraThread(1)
+    cam_l = CameraThread(1)
+    cam_r = CameraThread(0)
 
     try:
         with vpi.Backend.CUDA:
             for i in range(100):
-                print(i)
+
+                ts = []
+                ts.append(time.perf_counter())
                 # confidenceMap = vpi.Image(vpi_l.size, vpi.Format.U16)
-                #
+
                 arr_l = cam_l.image
                 arr_r = cam_r.image
+                ts.append(time.perf_counter())
 
                 # RGB -> GRAY
                 arr_l = cv2.cvtColor(arr_l, cv2.COLOR_RGB2GRAY)
                 arr_r = cv2.cvtColor(arr_r, cv2.COLOR_RGB2GRAY)
+                ts.append(time.perf_counter())
 
                 # Rectify
                 arr_l_rect = cv2.remap(arr_l, *map_l, cv2.INTER_LANCZOS4)
                 arr_r_rect = cv2.remap(arr_r, *map_r, cv2.INTER_LANCZOS4)
+                ts.append(time.perf_counter())
 
                 # Resize
                 arr_l_rect = cv2.resize(arr_l_rect, (480, 270))
                 arr_r_rect = cv2.resize(arr_r_rect, (480, 270))
+                ts.append(time.perf_counter())
 
                 # Convert to VPI image
                 vpi_l = vpi.asimage(arr_l_rect)
@@ -82,9 +88,9 @@ if __name__ == "__main__":
                 vpi_l_16bpp = vpi_l.convert(vpi.Format.U16, scale=1)
                 vpi_r_16bpp = vpi_r.convert(vpi.Format.U16, scale=1)
 
-                st = time.perf_counter()
                 vpi_l_16bpp = vpi_l.convert(vpi.Format.U16, scale=1)
                 vpi_r_16bpp = vpi_r.convert(vpi.Format.U16, scale=1)
+                ts.append(time.perf_counter())
 
                 disparity_16bpp = vpi.stereodisp(
                     vpi_l_16bpp,
@@ -97,15 +103,41 @@ if __name__ == "__main__":
                 disparity_8bpp = disparity_16bpp.convert(
                     vpi.Format.U8, scale=255.0 / (32 * MAX_DISP)
                 )
+                ts.append(time.perf_counter())
 
                 disp_arr = disparity_8bpp.cpu()
+                ts.append(time.perf_counter())
+
                 disp_arr = cv2.applyColorMap(disp_arr, cv2.COLORMAP_TURBO)
+                ts.append(time.perf_counter())
 
                 cv2.imshow("Disparity", disp_arr)
                 cv2.waitKey(1)
-                print(disp_arr.shape)
+                ts.append(time.perf_counter())
 
-                # print(time.perf_counter() - st)
+                ts = np.array(ts)
+                ts_deltas = np.diff(ts)
+
+                debug_str = f"Iter {i}\n"
+
+                for task, dt in zip(
+                    [
+                        "Read images",
+                        "OpenCV RGB->GRAY",
+                        "OpenCV Rectify",
+                        "OpenCV 1080p->270p Resize",
+                        "VPI conversions",
+                        "Disparity calc",
+                        ".cpu() mapping",
+                        "OpenCV colormap",
+                        "Render",
+                    ],
+                    ts_deltas,
+                ):
+                    debug_str += f"{task} {1000*dt:0.2f}\n"
+
+                print(debug_str)
+
     except KeyboardInterrupt as e:
         print(e)
     finally:
