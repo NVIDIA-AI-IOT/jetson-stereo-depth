@@ -67,8 +67,8 @@ if __name__ == "__main__":
                 ts.append(time.perf_counter())
 
                 # RGB -> GRAY
-                arr_l = cv2.cvtColor(arr_l, cv2.COLOR_RGB2GRAY)
-                arr_r = cv2.cvtColor(arr_r, cv2.COLOR_RGB2GRAY)
+                # arr_l = cv2.cvtColor(arr_l, cv2.COLOR_RGB2GRAY)
+                # arr_r = cv2.cvtColor(arr_r, cv2.COLOR_RGB2GRAY)
                 ts.append(time.perf_counter())
 
                 # Rectify
