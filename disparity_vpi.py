@@ -25,6 +25,23 @@ def get_calibration() -> tuple:
     return map_l, map_r
 
 
+def make_vpi_warpmap(cv_maps) -> vpi.WarpMap:
+    
+    src_map = cv_maps[0]
+    idk_what_that_is = cv_maps[1]
+    map_y, map_x = src_map[:,:,0], src_map[:,:,1]
+    
+    warp = vpi.WarpMap(vpi.WarpGrid((1920,1080)))
+    # (H, W, C) -> (C,H,W)
+    arr_warp = np.asarray(warp)
+    wx = arr_warp[:,:,0]
+    wy = arr_warp[:,:,1]
+
+    wy[:1080,:] = map_x
+    wx[:1080,:] = map_y
+    
+    return warp
+
 class CameraThread(Thread):
     def __init__(self, sensor_id) -> None:
 
@@ -49,7 +66,10 @@ class CameraThread(Thread):
 
 
 if __name__ == "__main__":
+
     map_l, map_r = get_calibration()
+    warp_l = make_vpi_warpmap(map_l)
+    warp_r = make_vpi_warpmap(map_r)
 
     cam_l = CameraThread(1)
     cam_r = CameraThread(0)
@@ -62,36 +82,32 @@ if __name__ == "__main__":
                 ts.append(time.perf_counter())
                 # confidenceMap = vpi.Image(vpi_l.size, vpi.Format.U16)
 
+                # Read Images
                 arr_l = cam_l.image
                 arr_r = cam_r.image
                 ts.append(time.perf_counter())
 
-                # RGB -> GRAY
-                # arr_l = cv2.cvtColor(arr_l, cv2.COLOR_RGB2GRAY)
-                # arr_r = cv2.cvtColor(arr_r, cv2.COLOR_RGB2GRAY)
+                # Convert to VPI image
+                vpi_l = vpi.asimage(arr_l)
+                vpi_r = vpi.asimage(arr_r)
                 ts.append(time.perf_counter())
 
                 # Rectify
-                arr_l_rect = cv2.remap(arr_l, *map_l, cv2.INTER_LANCZOS4)
-                arr_r_rect = cv2.remap(arr_r, *map_r, cv2.INTER_LANCZOS4)
+                vpi_l = vpi_l.remap(warp_l)
+                vpi_r = vpi_r.remap(warp_r)
                 ts.append(time.perf_counter())
 
                 # Resize
-                arr_l_rect = cv2.resize(arr_l_rect, (480, 270))
-                arr_r_rect = cv2.resize(arr_r_rect, (480, 270))
+                vpi_l = vpi_l.rescale((480, 270), interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO)
+                vpi_r = vpi_r.rescale((480, 270), interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO)
                 ts.append(time.perf_counter())
 
-                # Convert to VPI image
-                vpi_l = vpi.asimage(arr_l_rect)
-                vpi_r = vpi.asimage(arr_r_rect)
-
-                vpi_l_16bpp = vpi_l.convert(vpi.Format.U16, scale=1)
-                vpi_r_16bpp = vpi_r.convert(vpi.Format.U16, scale=1)
-
+                # Convert to 16bpp
                 vpi_l_16bpp = vpi_l.convert(vpi.Format.U16, scale=1)
                 vpi_r_16bpp = vpi_r.convert(vpi.Format.U16, scale=1)
                 ts.append(time.perf_counter())
 
+                # Disparity
                 disparity_16bpp = vpi.stereodisp(
                     vpi_l_16bpp,
                     vpi_r_16bpp,
@@ -100,34 +116,42 @@ if __name__ == "__main__":
                     window=WINDOW_SIZE,
                     maxdisp=MAX_DISP,
                 )
+                ts.append(time.perf_counter())
+
+                # Convert again
                 disparity_8bpp = disparity_16bpp.convert(
                     vpi.Format.U8, scale=255.0 / (32 * MAX_DISP)
                 )
                 ts.append(time.perf_counter())
 
+                # CPU mapping
                 disp_arr = disparity_8bpp.cpu()
                 ts.append(time.perf_counter())
 
-                disp_arr = cv2.applyColorMap(disp_arr, cv2.COLORMAP_TURBO)
+                # Colormap
+                # disp_arr = cv2.applyColorMap(disp_arr, cv2.COLORMAP_TURBO)
                 ts.append(time.perf_counter())
 
-                cv2.imshow("Disparity", disp_arr)
-                cv2.waitKey(1)
+                # Render
+                # cv2.imshow("Disparity", disp_arr)
+                # cv2.waitKey(1)
                 ts.append(time.perf_counter())
 
                 ts = np.array(ts)
                 ts_deltas = np.diff(ts)
+
 
                 debug_str = f"Iter {i}\n"
 
                 for task, dt in zip(
                     [
                         "Read images",
-                        "OpenCV RGB->GRAY",
-                        "OpenCV Rectify",
-                        "OpenCV 1080p->270p Resize",
-                        "VPI conversions",
-                        "Disparity calc",
+                        "Convert to VPI image",
+                        "Rectify",
+                        "Resize 1080p->270p",
+                        "Convert to 16bpp",
+                        "Disparity",
+                        "Convert 16bpp->8bpp",
                         ".cpu() mapping",
                         "OpenCV colormap",
                         "Render",
@@ -135,6 +159,8 @@ if __name__ == "__main__":
                     ts_deltas,
                 ):
                     debug_str += f"{task} {1000*dt:0.2f}\n"
+
+                debug_str += f"Sum: {sum(ts_deltas)}\n\n"
 
                 print(debug_str)
 
