@@ -75,94 +75,103 @@ if __name__ == "__main__":
     cam_r = CameraThread(0)
 
     try:
-        with vpi.Backend.CUDA:
-            for i in range(100):
+        for i in range(3000):
 
-                ts = []
-                ts.append(time.perf_counter())
-                # confidenceMap = vpi.Image(vpi_l.size, vpi.Format.U16)
+            ts = []
+            ts.append(time.perf_counter())
+            # confidenceMap = vpi.Image(vpi_l.size, vpi.Format.U16)
 
-                # Read Images
-                arr_l = cam_l.image
-                arr_r = cam_r.image
-                ts.append(time.perf_counter())
+            # Read Images
+            arr_l = cam_l.image
+            arr_r = cam_r.image
+            ts.append(time.perf_counter())
 
-                # Convert to VPI image
-                vpi_l = vpi.asimage(arr_l)
-                vpi_r = vpi.asimage(arr_r)
-                ts.append(time.perf_counter())
+            # Convert to VPI image
+            vpi_l = vpi.asimage(arr_l)
+            vpi_r = vpi.asimage(arr_r)
+            ts.append(time.perf_counter())
 
-                # Rectify
+            # Rectify
+            with vpi.Backend.CUDA:
                 vpi_l = vpi_l.remap(warp_l)
                 vpi_r = vpi_r.remap(warp_r)
-                ts.append(time.perf_counter())
+            ts.append(time.perf_counter())
 
-                # Resize
+            # Resize
+            with vpi.Backend.CUDA:
                 vpi_l = vpi_l.rescale((480, 270), interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO)
                 vpi_r = vpi_r.rescale((480, 270), interp=vpi.Interp.LINEAR, border=vpi.Border.ZERO)
-                ts.append(time.perf_counter())
+            ts.append(time.perf_counter())
 
-                # Convert to 16bpp
+            # Convert to 16bpp
+            with vpi.Backend.CUDA:
                 vpi_l_16bpp = vpi_l.convert(vpi.Format.U16, scale=1)
                 vpi_r_16bpp = vpi_r.convert(vpi.Format.U16, scale=1)
-                ts.append(time.perf_counter())
+            ts.append(time.perf_counter())
 
-                # Disparity
-                disparity_16bpp = vpi.stereodisp(
-                    vpi_l_16bpp,
-                    vpi_r_16bpp,
-                    out_confmap=None,
-                    backend=vpi.Backend.CUDA,
-                    window=WINDOW_SIZE,
-                    maxdisp=MAX_DISP,
-                )
-                ts.append(time.perf_counter())
+            # Disparity
+            disparity_16bpp = vpi.stereodisp(
+                vpi_l_16bpp,
+                vpi_r_16bpp,
+                out_confmap=None,
+                backend=vpi.Backend.CUDA,
+                window=WINDOW_SIZE,
+                maxdisp=MAX_DISP,
+            )
+            ts.append(time.perf_counter())
 
+            with vpi.Backend.CUDA:
                 # Convert again
                 disparity_8bpp = disparity_16bpp.convert(
                     vpi.Format.U8, scale=255.0 / (32 * MAX_DISP)
                 )
-                ts.append(time.perf_counter())
+            ts.append(time.perf_counter())
 
-                # CPU mapping
-                disp_arr = disparity_8bpp.cpu()
-                ts.append(time.perf_counter())
+            # CPU mapping
+            disp_arr = disparity_8bpp.cpu()
+            ts.append(time.perf_counter())
 
-                # Colormap
-                # disp_arr = cv2.applyColorMap(disp_arr, cv2.COLORMAP_TURBO)
-                ts.append(time.perf_counter())
+            # Colormap
+            # disp_arr = cv2.applyColorMap(disp_arr, cv2.COLORMAP_TURBO)
+            ts.append(time.perf_counter())
 
-                # Render
-                # cv2.imshow("Disparity", disp_arr)
-                # cv2.waitKey(1)
-                ts.append(time.perf_counter())
+            # Render
+            # cv2.imshow("Disparity", disp_arr)
+            # cv2.waitKey(1)
+            ts.append(time.perf_counter())
 
-                ts = np.array(ts)
-                ts_deltas = np.diff(ts)
+            ts = np.array(ts)
+            ts_deltas = np.diff(ts)
 
 
-                debug_str = f"Iter {i}\n"
+            debug_str = f"Iter {i}\n"
 
-                for task, dt in zip(
-                    [
-                        "Read images",
-                        "Convert to VPI image",
-                        "Rectify",
-                        "Resize 1080p->270p",
-                        "Convert to 16bpp",
-                        "Disparity",
-                        "Convert 16bpp->8bpp",
-                        ".cpu() mapping",
-                        "OpenCV colormap",
-                        "Render",
-                    ],
-                    ts_deltas,
-                ):
-                    debug_str += f"{task} {1000*dt:0.2f}\n"
+            for task, dt in zip(
+                [
+                    "Read images",
+                    "Convert to VPI image",
+                    "Rectify",
+                    "Resize 1080p->270p",
+                    "Convert to 16bpp",
+                    "Disparity",
+                    "Convert 16bpp->8bpp",
+                    ".cpu() mapping",
+                    "OpenCV colormap",
+                    "Render",
+                ],
+                ts_deltas,
+            ):
+                debug_str += f"{task} {1000*dt:0.2f}\n"
 
-                debug_str += f"Sum: {sum(ts_deltas)}\n\n"
+            debug_str += f"Sum: {sum(ts_deltas)}\n\n"
 
-                print(debug_str)
+            del vpi_l, vpi_r, arr_l, arr_r
+            del disparity_8bpp, disparity_16bpp, vpi_l_16bpp, vpi_r_16bpp
+
+            print(debug_str)
+
+            if i % 30 == 0:
+                vpi.clear_cache()
 
     except KeyboardInterrupt as e:
         print(e)
