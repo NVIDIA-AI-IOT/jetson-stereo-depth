@@ -41,12 +41,10 @@ class Depth(Thread):
         self._cam_r.stop()
 
     def disparity(self):
-        return self._disp_arr.cpu()
+        return self._disp_arr
 
     def run(self):
-        import vpi
-
-        # Don't import vpi in main thread to avoid creating a global context
+        import vpi  # Don't import vpi in main thread to avoid creating a global context
 
         i = 0
         self._warp_l = make_vpi_warpmap(self._map_l)
@@ -109,7 +107,9 @@ class Depth(Thread):
                 ts.append(time.perf_counter())
 
                 # CPU mapping
-                self._disp_arr = disparity_8bpp
+                self._disp_arr = disparity_8bpp.cpu()
+                global frames
+                frames.append(self._disp_arr)
                 ts.append(time.perf_counter())
 
                 # Render
@@ -144,7 +144,7 @@ class Depth(Thread):
             for task, dt in zip(tasks, task_acc_time):
                 debug_str += f"{task.ljust(20)} {dt:0.2f}\n"
 
-            print(debug_str)
+            # print(debug_str)
 
             if i % 10 == 0:
                 vpi.clear_cache()
@@ -222,27 +222,27 @@ if __name__ == "__main__":
 
     DISPLAY = False
     SAVE = True
-    ITER = 300
     frames = []
     depth = Depth()
+    t1 = time.perf_counter()
 
-    start = time.perf_counter()
-    for i in range(ITER):
-        print(f"{i}/{ITER}")
+    for i in range(20):
         disp_arr = depth.disparity()
-        # depth_arr = calculate_depth(disp_arr)
+        depth_arr = calculate_depth(disp_arr)
+        print(f"{i}/20: {depth_arr.mean():0.2f}")
+        time.sleep(1)
 
         if DISPLAY:
             depth_arr = cv2.applyColorMap(depth_arr, cv2.COLORMAP_TURBO)
-            cv2.imshow("disparity", depth_arr)
+            cv2.imshow("Depth", depth_arr)
             cv2.waitKey(1)
-        if SAVE:
-            frames.append(disp_arr)
 
-    print(f"{ITER/(time.perf_counter() - start)} FPS")
     depth.stop()
+    t2 = time.perf_counter()
+    print(f"{len(frames)/(t2-t1)} FPS")
 
+    # Save frames
     for i, disp_arr in enumerate(frames):
-        print(f"{i}/{ITER}", end="\r")
+        print(f"{i}/{len(frames)}", end="\r")
         disp_arr = cv2.applyColorMap(disp_arr, cv2.COLORMAP_TURBO)
         cv2.imwrite(f"images/{i}.jpg", disp_arr)
