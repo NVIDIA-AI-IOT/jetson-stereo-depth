@@ -139,3 +139,5 @@ cython_debug/
 *.yaml
 *.jpg
 *.png
+*.npy
+*.mp4
