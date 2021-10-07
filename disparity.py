@@ -1,10 +1,12 @@
 import time
+import queue
 import numpy as np
 import cv2
 from threading import Thread
 from jetvision.elements import Camera
+from concurrent.futures import ThreadPoolExecutor
 
-MAX_DISP = 64
+MAX_DISP = 128
 WINDOW_SIZE = 10
 
 
@@ -30,9 +32,12 @@ class Depth(Thread):
         self._cam_l = CameraThread(1)
         self._disp_arr = None
         self._should_run = True
+        self._dq = queue.deque(maxlen=3)
+        self._executor = ThreadPoolExecutor(max_workers=4)
         self.start()
 
-        while self._disp_arr is None:
+        # Wait for the deque to start filling up
+        while len(self._dq) < 1:
             time.sleep(0.1)
 
     def stop(self):
@@ -41,7 +46,14 @@ class Depth(Thread):
         self._cam_r.stop()
 
     def disparity(self):
-        return self._disp_arr
+        while len(self._dq) == 0:
+            time.sleep(0.01)
+        return self._dq.pop()
+
+    def enqueue_async(self, vpi_image):
+        arr = vpi_image.cpu().copy()
+        self._dq.append(arr)
+        del vpi_image
 
     def run(self):
         import vpi  # Don't import vpi in main thread to avoid creating a global context
@@ -107,9 +119,10 @@ class Depth(Thread):
                 ts.append(time.perf_counter())
 
                 # CPU mapping
-                self._disp_arr = disparity_8bpp.cpu()
-                global frames
-                frames.append(self._disp_arr)
+                # self._disp_arr = disparity_8bpp
+                self._executor.submit(self.enqueue_async, disparity_8bpp)
+                # global frames
+                # frames.append(self._disp_arr)
                 ts.append(time.perf_counter())
 
                 # Render
@@ -220,29 +233,37 @@ def calculate_depth(disp_arr):
 
 if __name__ == "__main__":
 
-    DISPLAY = False
+    DISPLAY = True
     SAVE = True
-    frames = []
+    frames_d = []
+    frames_rgb = []
+
     depth = Depth()
     t1 = time.perf_counter()
 
-    for i in range(20):
+    for i in range(100):
         disp_arr = depth.disparity()
-        depth_arr = calculate_depth(disp_arr)
-        print(f"{i}/20: {depth_arr.mean():0.2f}")
-        time.sleep(1)
+        frames_d.append(disp_arr)
+        frames_rgb.append(depth._cam_l.image)
+        print(i)
+        # print(disp_arr)
+        # depth_arr = calculate_depth(disp_arr)
+        # print(f"{i}/20: {disp_arr:0.2f}")
+        # time.sleep(1)
 
         if DISPLAY:
-            depth_arr = cv2.applyColorMap(depth_arr, cv2.COLORMAP_TURBO)
-            cv2.imshow("Depth", depth_arr)
+            disp_arr = cv2.applyColorMap(disp_arr, cv2.COLORMAP_TURBO)
+            cv2.imshow("Depth", disp_arr)
+            cv2.imshow("Image", cv2.resize(depth._cam_l.image, (480, 270)))
             cv2.waitKey(1)
 
     depth.stop()
     t2 = time.perf_counter()
-    print(f"{len(frames)/(t2-t1)} FPS")
+    print(f"Approx framerate: {len(frames_d)/(t2-t1)} FPS")
 
     # Save frames
-    for i, disp_arr in enumerate(frames):
-        print(f"{i}/{len(frames)}", end="\r")
+    for i, (disp_arr, rgb_arr) in enumerate(zip(frames_d, frames_rgb)):
+        print(f"{i}/{len(frames_d)}", end="\r")
         disp_arr = cv2.applyColorMap(disp_arr, cv2.COLORMAP_TURBO)
-        cv2.imwrite(f"images/{i}.jpg", disp_arr)
+        cv2.imwrite(f"images/depth_{i}.jpg", disp_arr)
+        cv2.imwrite(f"images/rgb_{i}.jpg", rgb_arr)
