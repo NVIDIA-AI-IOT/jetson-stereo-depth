@@ -11,3 +11,6 @@ This repository contains:
 - [x] Reference disparity pipeline with OpenCV CPU implementation
 - [x] Calibration notebooks to determine a) intrinsic parameters and lens distortion coeficients of cameras b) rectification map between two sensors 
 - [ ] Deployment code in C++
+
+## Pipeline 
+![depth_pipeline](https://user-images.githubusercontent.com/26127866/136469605-e870fe16-9e91-4a8c-82f9-f126b3d5d64a.png)
