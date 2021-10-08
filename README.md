@@ -18,4 +18,5 @@ This repository contains:
 
 ## Hardware
 
+3D printable holder for 2 × IMX219 camera module. Baseline distance of the pair is 100mm.
 ![stere_pair](https://user-images.githubusercontent.com/26127866/136617929-e856610c-76fe-4e02-a634-4d3fe37d1f12.png)
