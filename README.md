@@ -14,3 +14,8 @@ This repository contains:
 
 ## Pipeline 
 ![depth_pipeline](https://user-images.githubusercontent.com/26127866/136469605-e870fe16-9e91-4a8c-82f9-f126b3d5d64a.png)
+
+
+## Hardware
+
+![stere_pair](https://user-images.githubusercontent.com/26127866/136617929-e856610c-76fe-4e02-a634-4d3fe37d1f12.png)
