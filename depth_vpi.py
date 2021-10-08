@@ -10,18 +10,6 @@ MAX_DISP = 128
 WINDOW_SIZE = 10
 
 
-class CAM_PARAMS:
-    SENSOR_FULL_X = 3.68  # mm
-    SENSOR_FULL_Y = 2.76  # mm
-    SENSOR_FULL_X_PX = 3280  # px
-    SENSOR_FULL_Y_PX = 2464  # px
-
-    PIXEL_SIZE = SENSOR_FULL_X / 3280  # approx. 0.00112mm (1.12 um) for IMX219
-    F_PX = 1570  # focal length in pixels (from intrinsic calibration)
-    F = F_PX * PIXEL_SIZE
-    B = 100  # mm (baseline)
-
-
 class Depth(Thread):
     def __init__(self):
 
