@@ -43,6 +43,24 @@ std::string gstreamer_pipeline(int sensor_id, int capture_width,
                                                                                                                                                                                                                                                                                                                                                                                                                                                                       "format=(string)BGR ! appsink max-buffers=1 drop=true";
 }
 
+void load_params(cv::Mat &map_l_x, cv::Mat &map_l_y, cv::Mat &map_r_x, cv::Mat &map_r_y)
+{
+    std::cout << "Loading rectification params..." << std::endl; 
+    cv::FileStorage fs("/home/nx/jetson-stereo-depth/calib/rectify_map_imx219_160deg_1080p.yaml", cv::FileStorage::READ);
+    fs["map_l_x"] >> map_l_x;
+    fs["map_l_y"] >> map_l_y;
+    fs["map_r_x"] >> map_r_x;
+    fs["map_r_y"] >> map_r_y;
+
+    if(map_l_x.empty() + map_l_y.empty() +  map_r_x.empty() + map_r_y.empty() > 0)
+    {
+        std::cerr << "Failed to load rectification params!";
+        exit(1);
+    }
+
+    fs.release();
+    std::cout << "Rectification params loaded." << std::endl;
+}
 int main()
 {
 
@@ -62,21 +80,7 @@ int main()
 
     // remap() parameters
     cv::Mat map_l_x, map_l_y, map_r_x, map_r_y;
-
-    std::cout << "Loading rectification params..." << std::endl; 
-    cv::FileStorage fs("/home/nx/jetson-stereo-depth/calib/rectify_map_imx219_160deg_1080p.yaml", cv::FileStorage::READ);
-    fs["map_l_x"] >> map_l_x;
-    fs["map_l_y"] >> map_l_y;
-    fs["map_r_x"] >> map_r_x;
-    fs["map_r_y"] >> map_r_y;
-
-    std::cout << map_l_x.empty();
-    std::cout << map_l_y.empty();
-    std::cout << map_r_x.empty();
-    std::cout << map_r_y.empty();
-
-    fs.release();
-    std::cout << "Rectification params loaded." << std::endl;
+    load_params(map_l_x, map_l_y, map_r_x, map_r_y);
     
     // VPI containers
     VPIImage img_vpi_l = NULL;
