@@ -1,6 +1,6 @@
 # Jetson Stereo Depth
 
-HW-accelerated Stereo Depth on Nvidia Jetson Platform
+Build your own stereo camera from scratch with Nvidia Jetson.
 
 ![demo gif](docs/output_disp_rgb_hstack.gif)
 
