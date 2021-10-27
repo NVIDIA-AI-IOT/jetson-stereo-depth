@@ -66,16 +66,25 @@
         }                                                     \
     } while (0);
 
+std::string gstreamer_pipeline(int sensor_id, int capture_width,
+    int capture_height, int display_width,
+    int display_height, int framerate,
+    int flip_method)
+{
+    return "nvarguscamerasrc sensor_id=" + std::to_string(sensor_id) + " ! video/x-raw(memory:NVMM), width=(int)" + std::to_string(capture_width) + ", height=(int)" + std::to_string(capture_height) + ", format=(string)NV12, framerate=(fraction)" + std::to_string(framerate) + "/1 ! nvvidconv flip-method=" + std::to_string(flip_method) + " ! video/x-raw, width=(int)" + std::to_string(display_width) + ", height=(int)" + std::to_string(display_height) + ", format=(string)BGRx ! videoconvert ! video/x-raw, "
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                      "format=(string)BGR ! appsink max-buffers=2 drop=true";
+}
+
+
 int main(int argc, char *argv[])
 {
-    // OpenCV image that will be wrapped by a VPIImage.
-    // Define it here so that it's destroyed *after* wrapper is destroyed
+    int retval = 0;
+
+    // OpenCV objects
     cv::Mat cvImageLeft, cvImageRight;
     cv::Mat cvDisparity;
 
-    uint32_t backends = VPI_BACKEND_CUDA;
-
-    // VPI objects that will be used
+    // VPI objects
     VPIImage inLeft        = NULL;
     VPIImage inRight       = NULL;
     VPIImage tmpLeft       = NULL;
@@ -87,25 +96,29 @@ int main(int argc, char *argv[])
     VPIStream stream       = NULL;
     VPIPayload stereo      = NULL;
 
-    int retval = 0;
+    // Image params
+    int32_t W_in  = 1920;
+    int32_t H_in  = 1080;
+    int32_t W_out  = 480;
+    int32_t H_out = 270;
+    int32_t FPS = 30;
+    int32_t FLIP_METHOD = 2;
 
-    // Load the input images
-    cvImageLeft = cv::imread("chair_stereo_left.png");
-    cvImageRight = cv::imread("chair_stereo_right.png");
+    // Create camera capture pipelines
+    std::string pipeline_right = gstreamer_pipeline(1, W_in, H_in, W_out, H_out, FPS, FLIP_METHOD);
+    std::string pipeline_left = gstreamer_pipeline(0, W_in, H_in, W_out, H_out, FPS, FLIP_METHOD);
 
-    int32_t W_in  = cvImageLeft.cols;
-    int32_t H_in = cvImageLeft.rows;
-    int32_t W_out  = W_in;
-    int32_t H_out = H_in;
-    int32_t MAX_DISPARITY = 256;
+    cv::VideoCapture cap_l(pipeline_left, cv::CAP_GSTREAMER);
+    cv::VideoCapture cap_r(pipeline_right, cv::CAP_GSTREAMER);
+
+    if (!cap_l.isOpened() || !cap_r.isOpened()) {
+        std::cerr << "Failed to open camera." << std::endl;
+        return (-1);
+    }
+
 
     // Create VPI stream
     CHECK_STATUS(vpiStreamCreate(0, &stream));
-
-    // We now wrap the loaded images into a VPIImage object to be used by VPI.
-    // VPI won't make a copy of it, so the original image must be in scope at all times.
-    CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(cvImageLeft, 0, &inLeft));
-    CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(cvImageRight, 0, &inRight));
 
     // Format conversion parameters needed for input pre-processing
     VPIConvertImageFormatParams convParams;
@@ -116,13 +129,12 @@ int main(int argc, char *argv[])
     CHECK_STATUS(vpiInitStereoDisparityEstimatorCreationParams(&stereoParams));
 
     // Define some backend-dependent parameters
-
-    stereoParams.maxDisparity = MAX_DISPARITY;
+    stereoParams.maxDisparity = 256;
 
     VPIImageFormat stereoFormat;
     stereoFormat = VPI_IMAGE_FORMAT_Y16_ER; // 16bpp format
 
-    CHECK_STATUS(vpiCreateStereoDisparityEstimator(backends, W_out, H_out, stereoFormat, &stereoParams, &stereo)); // create stereo estimator object
+    CHECK_STATUS(vpiCreateStereoDisparityEstimator(VPI_BACKEND_CUDA, W_out, H_out, stereoFormat, &stereoParams, &stereo)); // create stereo estimator object
     CHECK_STATUS(vpiImageCreate(W_out, H_out, VPI_IMAGE_FORMAT_U16, 0, &disparity)); // create disparity buffer
     CHECK_STATUS(vpiImageCreate(W_out, H_out, VPI_IMAGE_FORMAT_U16, 0, &confidenceMap)); // create confidence buffer
 
@@ -144,9 +156,19 @@ int main(int argc, char *argv[])
 
     for(int i=0; i<1000; ++i)
     {
+        // CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, input, output, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
+        // CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, input, output, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
 
-        // CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, input, output, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
-        // CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, input, output, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
+        // cvImageLeft = cv::imread("chair_stereo_left.png");
+        // cvImageRight = cv::imread("chair_stereo_right.png");
+        
+        cap_l.read(cvImageLeft);
+        cap_r.read(cvImageRight);
+
+        // We now wrap the loaded images into a VPIImage object to be used by VPI.
+        // VPI won't make a copy of it, so the original image must be in scope at all times.
+        CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(cvImageLeft, 0, &inLeft));
+        CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(cvImageRight, 0, &inRight));
 
         CHECK_STATUS(vpiSubmitConvertImageFormat(stream, VPI_BACKEND_CUDA, inLeft, stereoLeft, &convParams));
         CHECK_STATUS(vpiSubmitConvertImageFormat(stream, VPI_BACKEND_CUDA, inRight, stereoRight, &convParams));
