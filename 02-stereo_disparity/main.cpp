@@ -93,8 +93,11 @@ int main(int argc, char *argv[])
     cvImageLeft = cv::imread("chair_stereo_left.png");
     cvImageRight = cv::imread("chair_stereo_right.png");
 
-    int32_t inputWidth  = cvImageLeft.cols;
-    int32_t inputHeight = cvImageLeft.rows;
+    int32_t W_in  = cvImageLeft.cols;
+    int32_t H_in = cvImageLeft.rows;
+    int32_t W_out  = W_in;
+    int32_t H_out = H_in;
+    int32_t MAX_DISPARITY = 256;
 
     // Create VPI stream
     CHECK_STATUS(vpiStreamCreate(0, &stream));
@@ -113,27 +116,20 @@ int main(int argc, char *argv[])
     CHECK_STATUS(vpiInitStereoDisparityEstimatorCreationParams(&stereoParams));
 
     // Define some backend-dependent parameters
-    int stereoWidth, stereoHeight;
-    stereoWidth  = inputWidth;
-    stereoHeight = inputHeight;
-    stereoParams.maxDisparity = 256;
+
+    stereoParams.maxDisparity = MAX_DISPARITY;
 
     VPIImageFormat stereoFormat;
-    stereoFormat = VPI_IMAGE_FORMAT_Y16_ER;
+    stereoFormat = VPI_IMAGE_FORMAT_Y16_ER; // 16bpp format
 
-    // Create the payload for Stereo Disparity algorithm.
-    // Payload is created before the image objects so that non-supported backends can be trapped with an error.
-    CHECK_STATUS(vpiCreateStereoDisparityEstimator(backends, stereoWidth, stereoHeight, stereoFormat, &stereoParams,
-                                                    &stereo));
-
-    // Create the image where the disparity map will be stored.
-    CHECK_STATUS(vpiImageCreate(stereoWidth, stereoHeight, VPI_IMAGE_FORMAT_U16, 0, &disparity));
-    CHECK_STATUS(vpiImageCreate(inputWidth, inputHeight, VPI_IMAGE_FORMAT_U16, 0, &confidenceMap));
+    CHECK_STATUS(vpiCreateStereoDisparityEstimator(backends, W_out, H_out, stereoFormat, &stereoParams, &stereo)); // create stereo estimator object
+    CHECK_STATUS(vpiImageCreate(W_out, H_out, VPI_IMAGE_FORMAT_U16, 0, &disparity)); // create disparity buffer
+    CHECK_STATUS(vpiImageCreate(W_out, H_out, VPI_IMAGE_FORMAT_U16, 0, &confidenceMap)); // create confidence buffer
 
 
     // Allocate input to stereo disparity algorithm, pitch-linear 16bpp grayscale
-    CHECK_STATUS(vpiImageCreate(stereoWidth, stereoHeight, stereoFormat, 0, &stereoLeft));
-    CHECK_STATUS(vpiImageCreate(stereoWidth, stereoHeight, stereoFormat, 0, &stereoRight));
+    CHECK_STATUS(vpiImageCreate(W_out, H_out, stereoFormat, 0, &stereoLeft));
+    CHECK_STATUS(vpiImageCreate(W_out, H_out, stereoFormat, 0, &stereoRight));
 
     // ================
     // Processing stage
@@ -148,9 +144,13 @@ int main(int argc, char *argv[])
 
     for(int i=0; i<1000; ++i)
     {
+
+        // CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, input, output, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
+        // CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, input, output, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
+
         CHECK_STATUS(vpiSubmitConvertImageFormat(stream, VPI_BACKEND_CUDA, inLeft, stereoLeft, &convParams));
         CHECK_STATUS(vpiSubmitConvertImageFormat(stream, VPI_BACKEND_CUDA, inRight, stereoRight, &convParams));
-        CHECK_STATUS(vpiSubmitStereoDisparityEstimator(stream, backends, stereo, stereoLeft, stereoRight, disparity,
+        CHECK_STATUS(vpiSubmitStereoDisparityEstimator(stream, VPI_BACKEND_CUDA, stereo, stereoLeft, stereoRight, disparity,
                                                         confidenceMap, NULL));
 
         // Wait until the algorithm finishes processing
