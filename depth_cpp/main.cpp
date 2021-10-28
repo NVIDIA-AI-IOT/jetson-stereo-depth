@@ -94,9 +94,9 @@ int main()
 
     // Pick the backend
     VPIBackend backend;
-    backend = VPI_BACKEND_PVA;
+    // backend = VPI_BACKEND_PVA;
     // backend = VPI_BACKEND_CPU;
-    // backend = VPI_BACKEND_CUDA;
+    backend = VPI_BACKEND_CUDA;
 
     VPIPayload stereo = NULL;
 

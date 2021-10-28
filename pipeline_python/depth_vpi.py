@@ -161,7 +161,7 @@ def disp2depth(disp_arr):
 
 def get_calibration() -> tuple:
     fs = cv2.FileStorage(
-        "calibration/rectify_map_imx219_160deg_1080p.yaml", cv2.FILE_STORAGE_READ
+        "calib/rectify_map_imx219_160deg_1080p.yaml", cv2.FILE_STORAGE_READ
     )
     map_l = (fs.getNode("map_l_x").mat(), fs.getNode("map_l_y").mat())
     map_r = (fs.getNode("map_r_x").mat(), fs.getNode("map_r_y").mat())
