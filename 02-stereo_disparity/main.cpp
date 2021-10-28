@@ -52,6 +52,18 @@
 #include <iostream>
 #include <sstream>
 
+void errIfNotSuccess(VPIStatus status)
+{
+    if (status != VPI_SUCCESS)
+    {
+        char buffer[VPI_MAX_STATUS_MESSAGE_LENGTH];
+        vpiGetLastStatusMessage(buffer, sizeof(buffer));
+        std::ostringstream ss;
+        ss << vpiStatusGetName(status) << ": " << buffer;
+        throw std::runtime_error(ss.str());
+    }
+}
+
 #define CHECK_STATUS(STMT)                                    \
     do                                                        \
     {                                                         \
@@ -135,7 +147,9 @@ int main(int argc, char *argv[])
     VPIImageFormat stereoFormat = VPI_IMAGE_FORMAT_Y16_ER; // 16bpp format
 
     // Allocate input to stereo disparity algorithm, pitch-linear 16bpp grayscale
-    CHECK_STATUS(vpiImageCreate(W_input, H_input, stereoFormat, 0, &imgL_8u));
+    VPIStatus status;
+    status = vpiImageCreate(W_input, H_input, stereoFormat, 0, &imgL_8u);
+    errIfNotSuccess(status);
     CHECK_STATUS(vpiImageCreate(W_input, H_input, stereoFormat, 0, &imgR_8u));
     CHECK_STATUS(vpiImageCreate(W_stereo, H_stereo, stereoFormat, 0, &imgL_270p));
     CHECK_STATUS(vpiImageCreate(W_stereo, H_stereo, stereoFormat, 0, &imgR_270p));
@@ -152,8 +166,7 @@ int main(int argc, char *argv[])
 
     auto start = std::chrono::steady_clock::now();
     for(int i=0; i<1000; ++i)
-    {        
-        // Read images. They are 270p U8 arrays
+    {
         cap_l.read(cvImageLeft);
         cap_r.read(cvImageRight);
         std::cout << "Pre" << std::endl;
