@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.5)
 
-project(test_vpi_streams)
+project(depth_pipeline)
 
 find_package(vpi 1.1 REQUIRED)
 find_package(OpenCV REQUIRED)
