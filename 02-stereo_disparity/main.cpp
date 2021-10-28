@@ -66,6 +66,8 @@
         }                                                     \
     } while (0);
 
+// #define CHECK_STATUS(STMT) do {} while (0);
+
 std::string gstreamer_pipeline(int sensor_id, int capture_width,
     int capture_height, int display_width,
     int display_height, int framerate,
@@ -85,28 +87,31 @@ int main(int argc, char *argv[])
     cv::Mat cvDisparity;
 
     // VPI objects
-    VPIImage inLeft        = NULL;
-    VPIImage inRight       = NULL;
-    VPIImage tmpLeft       = NULL;
-    VPIImage tmpRight      = NULL;
-    VPIImage stereoLeft    = NULL;
-    VPIImage stereoRight   = NULL;
-    VPIImage disparity     = NULL;
-    VPIImage confidenceMap = NULL;
     VPIStream stream       = NULL;
     VPIPayload stereo      = NULL;
 
+    VPIImage imgL         = NULL;
+    VPIImage imgR         = NULL;
+    VPIImage imgL_8u      = NULL;
+    VPIImage imgR_8u      = NULL;
+    VPIImage imgL_8u_rect = NULL;
+    VPIImage imgR_8u_rect = NULL;
+    VPIImage imgL_270p    = NULL;
+    VPIImage imgR_270p    = NULL;
+    VPIImage disparity     = NULL;
+    VPIImage confidenceMap = NULL;
+
     // Image params
-    int32_t W_in  = 1920;
-    int32_t H_in  = 1080;
-    int32_t W_out  = 480;
-    int32_t H_out = 270;
+    int32_t W_input  = 1920;
+    int32_t H_input  = 1080;
+    int32_t W_stereo  = 480;
+    int32_t H_stereo = 270;
     int32_t FPS = 30;
     int32_t FLIP_METHOD = 2;
 
     // Create camera capture pipelines
-    std::string pipeline_right = gstreamer_pipeline(1, W_in, H_in, W_out, H_out, FPS, FLIP_METHOD);
-    std::string pipeline_left = gstreamer_pipeline(0, W_in, H_in, W_out, H_out, FPS, FLIP_METHOD);
+    std::string pipeline_right = gstreamer_pipeline(1, W_input, H_input, W_input, H_input, FPS, FLIP_METHOD);
+    std::string pipeline_left = gstreamer_pipeline(0, W_input, H_input, W_input, H_input, FPS, FLIP_METHOD);
 
     cv::VideoCapture cap_l(pipeline_left, cv::CAP_GSTREAMER);
     cv::VideoCapture cap_r(pipeline_right, cv::CAP_GSTREAMER);
@@ -115,7 +120,6 @@ int main(int argc, char *argv[])
         std::cerr << "Failed to open camera." << std::endl;
         return (-1);
     }
-
 
     // Create VPI stream
     CHECK_STATUS(vpiStreamCreate(0, &stream));
@@ -127,52 +131,44 @@ int main(int argc, char *argv[])
     // Set algorithm parameters to be used. Only values what differs from defaults will be overwritten.
     VPIStereoDisparityEstimatorCreationParams stereoParams;
     CHECK_STATUS(vpiInitStereoDisparityEstimatorCreationParams(&stereoParams));
-
-    // Define some backend-dependent parameters
     stereoParams.maxDisparity = 256;
-
-    VPIImageFormat stereoFormat;
-    stereoFormat = VPI_IMAGE_FORMAT_Y16_ER; // 16bpp format
-
-    CHECK_STATUS(vpiCreateStereoDisparityEstimator(VPI_BACKEND_CUDA, W_out, H_out, stereoFormat, &stereoParams, &stereo)); // create stereo estimator object
-    CHECK_STATUS(vpiImageCreate(W_out, H_out, VPI_IMAGE_FORMAT_U16, 0, &disparity)); // create disparity buffer
-    CHECK_STATUS(vpiImageCreate(W_out, H_out, VPI_IMAGE_FORMAT_U16, 0, &confidenceMap)); // create confidence buffer
-
+    VPIImageFormat stereoFormat = VPI_IMAGE_FORMAT_Y16_ER; // 16bpp format
 
     // Allocate input to stereo disparity algorithm, pitch-linear 16bpp grayscale
-    CHECK_STATUS(vpiImageCreate(W_out, H_out, stereoFormat, 0, &stereoLeft));
-    CHECK_STATUS(vpiImageCreate(W_out, H_out, stereoFormat, 0, &stereoRight));
+    CHECK_STATUS(vpiImageCreate(W_input, H_input, stereoFormat, 0, &imgL_8u));
+    CHECK_STATUS(vpiImageCreate(W_input, H_input, stereoFormat, 0, &imgR_8u));
+    CHECK_STATUS(vpiImageCreate(W_stereo, H_stereo, stereoFormat, 0, &imgL_270p));
+    CHECK_STATUS(vpiImageCreate(W_stereo, H_stereo, stereoFormat, 0, &imgR_270p));
+    CHECK_STATUS(vpiCreateStereoDisparityEstimator(VPI_BACKEND_CUDA, W_stereo, H_stereo, stereoFormat, &stereoParams, &stereo)); // create stereo estimator object
+    CHECK_STATUS(vpiImageCreate(W_stereo, H_stereo, VPI_IMAGE_FORMAT_U16, 0, &disparity)); // create disparity buffer
+    CHECK_STATUS(vpiImageCreate(W_stereo, H_stereo, VPI_IMAGE_FORMAT_U16, 0, &confidenceMap)); // create confidence buffer
 
-    // ================
-    // Processing stage
+    // Read cameras once to create a non-empty cv::Mat
+    cap_l.read(cvImageLeft);
+    cap_r.read(cvImageRight);
+    // Wrap cv::Mat in vpiImage
+    CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(cvImageLeft, 0, &imgL));
+    CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(cvImageRight, 0, &imgR));
 
-    // -----------------
-    // Pre-process input
-
-    // Convert opencv input to grayscale format using CUDA
-
-    
     auto start = std::chrono::steady_clock::now();
-
     for(int i=0; i<1000; ++i)
-    {
-        // CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, input, output, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
-        // CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, input, output, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
-
-        // cvImageLeft = cv::imread("chair_stereo_left.png");
-        // cvImageRight = cv::imread("chair_stereo_right.png");
-        
+    {        
+        // Read images. They are 270p U8 arrays
         cap_l.read(cvImageLeft);
         cap_r.read(cvImageRight);
+        std::cout << "Pre" << std::endl;
+        vpiImageSetWrappedOpenCVMat(imgL, cvImageLeft);
+        vpiImageSetWrappedOpenCVMat(imgL, cvImageRight);
+        std::cout << "Post" << std::endl;
 
-        // We now wrap the loaded images into a VPIImage object to be used by VPI.
-        // VPI won't make a copy of it, so the original image must be in scope at all times.
-        CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(cvImageLeft, 0, &inLeft));
-        CHECK_STATUS(vpiImageCreateOpenCVMatWrapper(cvImageRight, 0, &inRight));
-
-        CHECK_STATUS(vpiSubmitConvertImageFormat(stream, VPI_BACKEND_CUDA, inLeft, stereoLeft, &convParams));
-        CHECK_STATUS(vpiSubmitConvertImageFormat(stream, VPI_BACKEND_CUDA, inRight, stereoRight, &convParams));
-        CHECK_STATUS(vpiSubmitStereoDisparityEstimator(stream, VPI_BACKEND_CUDA, stereo, stereoLeft, stereoRight, disparity,
+        // Convert to uint8
+        CHECK_STATUS(vpiSubmitConvertImageFormat(stream, VPI_BACKEND_CUDA, imgL, imgL_8u, &convParams));
+        CHECK_STATUS(vpiSubmitConvertImageFormat(stream, VPI_BACKEND_CUDA, imgR, imgR_8u, &convParams));
+        // Rescale
+        CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, imgL_8u, imgL_270p, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
+        CHECK_STATUS(vpiSubmitRescale(stream, VPI_BACKEND_CUDA, imgR_8u, imgR_270p, VPI_INTERP_LINEAR, VPI_BORDER_ZERO, 0));
+        // Disparity
+        CHECK_STATUS(vpiSubmitStereoDisparityEstimator(stream, VPI_BACKEND_CUDA, stereo, imgL_270p, imgR_270p, disparity,
                                                         confidenceMap, NULL));
 
         // Wait until the algorithm finishes processing
@@ -184,6 +180,7 @@ int main(int argc, char *argv[])
 
         // Make an OpenCV matrix out of this image
         CHECK_STATUS(vpiImageDataExportOpenCVMat(data, &cvDisparity));
+
 
         // Scale result and write it to disk. Disparities are in Q10.5 format,
         // so to map it to float, it gets divided by 32. Then the resulting disparity range,
@@ -198,7 +195,8 @@ int main(int argc, char *argv[])
         // Done handling output, don't forget to unlock it.
         CHECK_STATUS(vpiImageUnlock(disparity));
         
-        // cv::imshow("disparity_map.png", cvDisparityColor);
+        cv::imshow("disparity_map.png", cvDisparityColor);
+        cv::waitKey(1);
         // std::cout << i << std::endl;
 
         auto end = std::chrono::steady_clock::now();
@@ -222,12 +220,12 @@ int main(int argc, char *argv[])
     // Only then we can destroy the other objects, as we're sure they
     // aren't being used anymore.
 
-    vpiImageDestroy(inLeft);
-    vpiImageDestroy(inRight);
-    vpiImageDestroy(tmpLeft);
-    vpiImageDestroy(tmpRight);
-    vpiImageDestroy(stereoLeft);
-    vpiImageDestroy(stereoRight);
+    vpiImageDestroy(imgL);
+    vpiImageDestroy(imgR);
+    vpiImageDestroy(imgL_8u);
+    vpiImageDestroy(imgR_8u);
+    vpiImageDestroy(imgL_270p);
+    vpiImageDestroy(imgR_270p);
     vpiImageDestroy(confidenceMap);
     vpiImageDestroy(disparity);
     vpiPayloadDestroy(stereo);
