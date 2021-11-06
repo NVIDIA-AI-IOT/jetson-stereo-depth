@@ -40,5 +40,7 @@ cmake .. && make -j$(nproc)
 
 ## Hardware
 
-3D printable holder for 2 × IMX219 camera module. Baseline distance of the pair is 100mm.
-![stere_pair](https://user-images.githubusercontent.com/26127866/136617929-e856610c-76fe-4e02-a634-4d3fe37d1f12.png)
+
+3D printable holder for 2 × IMX219 camera module. Baseline distance of the pair is 80mm.
+![Assembly_2021-Nov-06_01-24-12AM-000_CustomizedView199213964](https://user-images.githubusercontent.com/26127866/140593698-50981871-05e2-42f0-97ab-3a5ac7533acb.png)
+
