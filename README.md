@@ -1,7 +1,10 @@
 # Jetson Stereo Depth
 
-Build your own stereo camera from scratch with Nvidia Jetson.
+Build your own HW-accelerated stereo camera from scratch with Nvidia Jetson:
 
+![IMG_4761](https://user-images.githubusercontent.com/26127866/145352427-23b812aa-ef7f-4419-975a-5bb9d2ceae41.jpeg)
+
+Result:
 ![demo gif](docs/output_disp_rgb_hstack.gif)
 
 
@@ -11,6 +14,7 @@ This repository contains:
 - [x] Reference disparity pipeline with OpenCV CPU implementation
 - [x] Calibration notebooks to determine a) intrinsic parameters and lens distortion coeficients of cameras b) rectification map between two sensors 
 - [x] Deployment code in C++
+- [ ] Assembly instructions for the hardware
 
 ## Getting started
 
