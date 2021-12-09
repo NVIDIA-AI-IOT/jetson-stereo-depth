@@ -1,10 +1,7 @@
 # Jetson Stereo Depth
 
-Build your own HW-accelerated stereo camera from scratch with Nvidia Jetson:
+Build your own HW-accelerated stereo camera from scratch with Nvidia Jetson.
 
-![IMG_4761](https://user-images.githubusercontent.com/26127866/145352427-23b812aa-ef7f-4419-975a-5bb9d2ceae41.jpeg)
-
-Result:
 ![demo gif](docs/output_disp_rgb_hstack.gif)
 
 
@@ -44,7 +41,7 @@ cmake .. && make -j$(nproc)
 
 ## Hardware
 
+3D printable holder for 2 × IMX219 camera module is available [here](https://github.com/NVIDIA-AI-IOT/jetson-stereo-depth/blob/master/stl/stereo_front.stl). Baseline distance of the pair is 80mm.
 
-3D printable holder for 2 × IMX219 camera module. Baseline distance of the pair is 80mm.
-![Assembly_2021-Nov-06_01-24-12AM-000_CustomizedView199213964](https://user-images.githubusercontent.com/26127866/140593698-50981871-05e2-42f0-97ab-3a5ac7533acb.png)
+![IMG_4761](https://user-images.githubusercontent.com/26127866/145352427-23b812aa-ef7f-4419-975a-5bb9d2ceae41.jpeg)
 
