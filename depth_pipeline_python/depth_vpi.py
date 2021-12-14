@@ -3,7 +3,7 @@ import queue
 import numpy as np
 import cv2
 from threading import Thread
-from jetvision.elements import Camera
+from camera import Camera
 from concurrent.futures import ThreadPoolExecutor
 
 MAX_DISP = 128
