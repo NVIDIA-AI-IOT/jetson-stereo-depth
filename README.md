@@ -5,7 +5,7 @@ Build your own HW-accelerated stereo camera from scratch with Nvidia Jetson.
 ![demo gif](docs/output_disp_rgb_hstack.gif)
 
 
-https://user-images.githubusercontent.com/26127866/146460871-049c93b7-6757-4c77-8cde-2b619fa015ce.mp4
+<!-- https://user-images.githubusercontent.com/26127866/146460871-049c93b7-6757-4c77-8cde-2b619fa015ce.mp4 -->
 
 
 
