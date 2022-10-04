@@ -1,27 +1,25 @@
 # Jetson Stereo Depth
 
 Build your own HW-accelerated stereo camera from scratch with Nvidia Jetson.
-
-Demo:
 ![demo gif](docs/output_disp_rgb_hstack.gif)
-
-The hardware:
-![IMG_4761](https://user-images.githubusercontent.com/26127866/145352427-23b812aa-ef7f-4419-975a-5bb9d2ceae41.jpeg)
-
 
 <!-- https://user-images.githubusercontent.com/26127866/146460871-049c93b7-6757-4c77-8cde-2b619fa015ce.mp4 -->
 
 
-This repository contains:
+## This repository contains:
 
 1. Stereo Pair intrinsic calibration
-<img width="1183" alt="image" src="https://user-images.githubusercontent.com/26127866/193731578-40897c70-d1c0-4890-af8e-02e36b93c061.png">
+<img width="1105" alt="image" src="https://user-images.githubusercontent.com/26127866/193732403-dbaafe7f-dfee-4ac6-9f64-755a82845b7e.png">
 2. Lens distortion correction
-<img width="1004" alt="image" src="https://user-images.githubusercontent.com/26127866/193731737-c2241136-488f-4a77-a3a4-cfe6973ee554.png">
+<img width="1105" alt="image" src="https://user-images.githubusercontent.com/26127866/193732667-b34883ee-1501-4f8a-b81a-78f1eec8f984.png">
 3. VPI HW-accelerated `remap()`
 <img width="1105" alt="image" src="https://user-images.githubusercontent.com/26127866/193731814-ff3d1252-8945-443c-8a10-2ceeb8275d60.png">
+
 4. Depth calculation
 ![demo gif](docs/output_disp_rgb_hstack.gif)
+
+5. 3D Printable Hardware
+![IMG_4761](https://user-images.githubusercontent.com/26127866/145352427-23b812aa-ef7f-4419-975a-5bb9d2ceae41.jpeg)
 
 
 - [x] HW-accelerated depth pipeline _(capture->rectify->SGBM->depth calc.)_ in python
