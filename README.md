@@ -2,7 +2,7 @@
 
 Build your own HW-accelerated stereo camera from scratch with Nvidia Jetson.
 
-Example:
+Demo:
 ![demo gif](docs/output_disp_rgb_hstack.gif)
 
 The hardware:
@@ -12,8 +12,17 @@ The hardware:
 <!-- https://user-images.githubusercontent.com/26127866/146460871-049c93b7-6757-4c77-8cde-2b619fa015ce.mp4 -->
 
 
-
 This repository contains:
+
+1. Stereo Pair intrinsic calibration
+<img width="1183" alt="image" src="https://user-images.githubusercontent.com/26127866/193731578-40897c70-d1c0-4890-af8e-02e36b93c061.png">
+2. Lens distortion correction
+<img width="1004" alt="image" src="https://user-images.githubusercontent.com/26127866/193731737-c2241136-488f-4a77-a3a4-cfe6973ee554.png">
+3. VPI HW-accelerated `remap()`
+<img width="1105" alt="image" src="https://user-images.githubusercontent.com/26127866/193731814-ff3d1252-8945-443c-8a10-2ceeb8275d60.png">
+4. Depth calculation
+![demo gif](docs/output_disp_rgb_hstack.gif)
+
 
 - [x] HW-accelerated depth pipeline _(capture->rectify->SGBM->depth calc.)_ in python
 - [x] Reference disparity pipeline with OpenCV CPU implementation
